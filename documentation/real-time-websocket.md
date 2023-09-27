@@ -1,73 +1,82 @@
-# Accessing business real-time data in aliunid OPERATOR via HTTP Long Polling
 
-This documentation provides code snippets in JavaScript to demonstrate how to use API keys for HTTP Long Polling authorization to access business real-time data in [aliunid OPERATOR](https://operator.aliunid.com/).
+# Accessing business real-time data in aliunid OPERATOR via WebSockets
+
+This documentation provides code snippets in JavaScript to demonstrate how to use API keys for WebSockets authorization for accessing business real-time data in [aliunid OPERATOR](https://operator.aliunid.com/).
 
 ## Prerequisites
 
 Before proceeding, ensure you have the following:
 
-1. An API key for authorization. (Settings -> API keys -> Add API key)
-2. The business ID. (Navigate to the Dashboard and copy the ID from the address bar. For example, in the url `https://operator.aliunid.com/businesses/9bf32959-1fd4-4fa4-83e0-9e9cd80093af`, the business ID is `9bf32959-1fd4-4fa4-83e0-9e9cd80093af`).
-3. OPTIONAL: Measuring point IDs. (Navigate to the desired Measuring point and copy the ID from the address bar. For example, in the url `https://operator.aliunid.com/businesses/9bf32959-1fd4-4fa4-83e0-9e9cd80093af/self/measuring-points/e113fba4-9a5d-4ae9-aba9-b92b5b7ddf34`, the measuring point ID is `e113fba4-9a5d-4ae9-aba9-b92b5b7ddf34`).
-4. An HTTP client library. We'll use the `axios` library for this example.
+1. An API key to authenticate your WebSocket connection. (Settings -> API keys -> Add API key)
+2. The business ID. (Navigate to the Dashboard and copy the ID from the address bar. For example in the url `https://operator.aliunid.com/businesses/9bf32959-1fd4-4fa4-83e0-9e9cd80093af` business ID is `9bf32959-1fd4-4fa4-83e0-9e9cd80093af`)
+3. OPTIONAL: Measuring point IDs. (Navigate to the desired Measuring point and copy the ID from the address bar. For example in the url `https://operator.aliunid.com/businesses/9bf32959-1fd4-4fa4-83e0-9e9cd80093af/self/measuring-points/e113fba4-9a5d-4ae9-aba9-b92b5b7ddf34` measuring point ID is `e113fba4-9a5d-4ae9-aba9-b92b5b7ddf34`)
+4. A WebSocket client library. We'll use the `ws` library for this example.
 
 ## Installation
 
-Install the `axios` library using npm:
+Install the `ws` library using npm:
 
 ```bash
-npm install axios
+npm install ws
 ```
 
-## Making a Long Polling Request
+## WebSocket Connection
 
-Establish a connection to the server using your API key:
+Establish a WebSocket connection to the server using your API key:
 
 ```javascript
-const axios = require('axios')
+const WebSocket = require('ws')
 
 const API_KEY = 'YOUR_API_KEY'
 const BUSINESS_ID = 'YOUR_BUSINESS_ID'
 const MEASURING_POINT_ID_1 = 'YOUR_MEASURING_POINT_1'
 const MEASURING_POINT_ID_2 = 'YOUR_MEASURING_POINT_2'
 const OPTIONAL_MEASURING_POINT_IDS = `&id=${MEASURING_POINT_ID_1}&id=${MEASURING_POINT_ID_2}`
-const LONG_POLLING_ENDPOINT = `https://operator.aliunid.com/web/api/data-export/v1/businesses/${BUSINESS_ID}/measuring-points/live?apiKey=${YOUR_API_KEY}${OPTIONAL_MEASURING_POINT_IDS}`
+const WEBSOCKET_ENDPOINT = `wss://operator.aliunid.com/web/api/data-export/v1/businesses/${BUSINESS_ID}/measuring-points/live?apiKey=${YOUR_API_KEY}${OPTIONAL_MEASURING_POINT_IDS}`
 
-axios.get(LONG_POLLING_ENDPOINT)
-  .then(response => {
-    const data = response.data;
-
-    // Handle the data here...
-    console.log(data);
-  })
-  .catch(error => {
-    console.error('Error occurred:', error);
-  });
+const ws = new WebSocket(WEBSOCKET_ENDPOINT)
 ```
 
-## Listening to real-time data 
+This WebSocket connection will return all real-time data from the moment of the connection. To listen to specific measuring point IDs only add them as url query params.
 
-With HTTP Long Polling, you would typically set up a loop where, once the server responds to a request, a new request is immediately made. This loop emulates real-time behavior:
+## Listening real-time data
+
+Once the WebSocket connection is established, handle the incoming data from the server:
 
 ```javascript
-function pollData() {
-  axios.get(LONG_POLLING_ENDPOINT)
-    .then(response => {
-      const data = response.data;
+ws.on('open', () => {
+  console.log('WebSocket connection opened.');
 
-      // Handle the data here...
-      console.log(data);
+  ws.on('message', (data) => {
+    const jsonData = JSON.parse(data)
 
-      // Poll again
-      pollData();
-    })
-    .catch(error => {
-      console.error('Error occurred:', error);
-      setTimeout(pollData, 5000);  // Retry after 5 seconds if there's an error
-    });
-}
+    if (jsonData.type === 'data') {
+      // Handle data for a specific measuring point
+      const measuringPointId = jsonData.id
+      const measuringPointData = jsonData.data
+      console.log(`Data for Measuring Point ${measuringPointId}:`, measuringPointData)
+    } else {
+      console.log('Unknown data format, are you connected to the appropriate endpoint version?:', jsonData)
+    }
+  });
 
-pollData();
+  ws.on('close', () => {
+    console.log('WebSocket connection closed.')
+  });
+});
+```
+
+## Publishing
+
+The service is not supporting message handling. If the WebSocket client sends a message it will be disconnected.
+
+## Closing the WebSocket Connection
+
+To close the WebSocket connection:
+
+```javascript
+// Close the WebSocket connection when no longer needed
+ws.close();
 ```
 
 ## Data Format
@@ -81,7 +90,3 @@ pollData();
 ```
 
 Please note that the specific implementation details may vary. Adapt the code accordingly to fit your specific use case.
-
----
-
-> :warning: **Warning:** Remember, long polling is essentially a hack to simulate real-time data on HTTP. The valid use-case for its usage is only when WebSockets are not available or live data for a short period of time is required. Otherwise [WebSockets](./real-time-websocket.md) should be used.
