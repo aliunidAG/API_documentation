@@ -89,4 +89,12 @@ ws.close();
 }
 ```
 
+```json
+{
+  "type": "structure",
+  "id": "957f7b09-af00-4b59-b708-e06ae28f7bbb", // measuring point id
+  "structure": { "name": "MP name" } // measuring point details
+}
+```
+
 Please note that the specific implementation details may vary. Adapt the code accordingly to fit your specific use case.
